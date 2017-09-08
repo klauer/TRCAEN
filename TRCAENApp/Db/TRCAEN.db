@@ -1,0 +1,351 @@
+# This file is part of the CAEN Digitizer Driver.
+# It is subject to the license terms in the LICENSE.txt file found in the
+# top-level directory of this distribution and at
+# https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. No part
+# of the CAEN Digitizer Driver, including this file, may be copied,
+# modified, propagated, or distributed except according to the terms
+# contained in the LICENSE.txt file.
+
+# Macros:
+#   PREFIX  - prefix of records (: is implied)
+#   PORT    - port name of the TRCAEN instance
+#   REFRESH_STATES_SCAN - SCAN rate for refreshing device states
+#   HW_SAMPLE_RATE - the actual hardware sample rate
+
+# The current digitizer open state.
+record(mbbi, "$(PREFIX):OPEN_STATE") {
+    field(DESC, "Digitizer open state")
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)OPEN_STATE")
+    field(ZRVL, "0")
+    field(ZRST, "Closed")
+    field(ONVL, "1")
+    field(ONST, "Opening")
+    field(TWVL, "2")
+    field(TWST, "Opened")
+    field(THVL, "3")
+    field(THST, "Closing")
+    field(FLNK, "$(PREFIX):_open_state_changed")
+}
+
+# Write 1 or Open to open the digitizer.
+record(bo, "$(PREFIX):OPEN_DIGITIZER") {
+    field(DESC, "Request to open digitizer")
+    field(ONAM, "Open")
+    field(OUT,  "$(PREFIX):_do_open_digitizer PP")
+}
+
+# Write 1 or Close to close the digitizer.
+record(bo, "$(PREFIX):CLOSE_DIGITIZER") {
+    field(DESC, "Request to close digitizer")
+    field(ONAM, "Close")
+    field(OUT,  "$(PREFIX):_do_close_digitizer PP")
+}
+
+record(calcout, "$(PREFIX):_do_open_digitizer") {
+    field(PINI, "YES") # automatically try to open the digitizer at startup
+    field(CALC, "2")
+    field(OUT,  "$(PREFIX):_write_open_state PP")
+}
+record(calcout, "$(PREFIX):_do_close_digitizer") {
+    field(CALC, "0")
+    field(OUT,  "$(PREFIX):_write_open_state PP")
+}
+record(longout, "$(PREFIX):_write_open_state") {
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)OPEN_STATE")
+}
+
+# When the digitizer has been opened or closed, update the
+# digitizer information from the driver.
+record(calcout, "$(PREFIX):_open_state_changed") {
+    field(INPA, "$(PREFIX):OPEN_STATE")
+    field(CALC, "A=2||A=0")
+    field(OOPT, "When Non-zero")
+    field(OUT,  "$(PREFIX):_refresh_after_opened_closed PP")
+}
+
+# The hardware does not support configuring a sample rate.
+# Through this parameter we tell the software what the sample
+# rate is, for the time axis etc.
+record(ao, "$(PREFIX):SET_HW_SAMPLE_RATE") {
+    field(PINI, "YES")
+    field(VAL,  "$(HW_SAMPLE_RATE)")
+    field(DESC, "Set this to the actual sample rate")
+    field(DTYP, "asynFloat64")
+    field(OUT,  "@asyn($(PORT),0,0)HW_SAMPLE_RATE")
+    field(EGU,  "Hz")
+    field(FLNK, "$(PREFIX):_request_sample_rate")
+}
+
+# When the HW_SAMPLE_RATE is set, request this sample rate so
+# that the driver updates the achievable sample rate as well.
+record(calcout, "$(PREFIX):_request_sample_rate") {
+    field(INPA, "$(PREFIX):SET_HW_SAMPLE_RATE")
+    field(CALC, "A")
+    field(OUT,  "$(PREFIX):_requestedSampleRate PP")
+}
+
+# Start/stop mode (desired and effective).
+record(mbbo, "$(PREFIX):DESIRED_START_STOP_MODE") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)DESIRED_START_STOP_MODE")
+    field(ZRVL, "0")
+    field(ZRST, "Software Controlled")
+    field(ONVL, "1")
+    field(ONST, "GPI Controlled")
+    field(TWVL, "2")
+    field(TWST, "First Trigger Controlled")
+}
+record(mbbi, "$(PREFIX):GET_ARMED_START_STOP_MODE") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)EFFECTIVE_START_STOP_MODE")
+    field(ZRVL, "0")
+    field(ZRST, "Software Controlled")
+    field(ONVL, "1")
+    field(ONST, "GPI Controlled")
+    field(TWVL, "2")
+    field(TWST, "First Trigger Controlled")
+    field(THVL, "-1")
+    field(THST, "N/A")
+}
+
+# Run/start/stop delay (desired and effective).
+record(ao, "$(PREFIX):DESIRED_RUN_START_STOP_DELAY") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(EGU,  "8 ns")
+    field(DTYP, "asynFloat64")
+    field(OUT,  "@asyn($(PORT),0,0)DESIRED_RUN_START_STOP_DELAY")
+}
+record(ai, "$(PREFIX):GET_ARMED_RUN_START_STOP_DELAY") {
+    field(SCAN, "I/O Intr")
+    field(EGU,  "8 ns")
+    field(DTYP, "asynFloat64")
+    field(INP,  "@asyn($(PORT),0,0)EFFECTIVE_RUN_START_STOP_DELAY")
+}
+
+# Digitizer information.
+record(stringin, "$(PREFIX):GET_MODEL_NAME") {
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),0,0)INFO_MODEL_NAME")
+}
+record(stringin, "$(PREFIX):GET_ROC_FW_REV") {
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),0,0)INFO_ROC_FW_REV")
+}
+record(stringin, "$(PREFIX):GET_AMC_FW_REV") {
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),0,0)INFO_AMC_FW_REV")
+}
+record(longin, "$(PREFIX):GET_PCB_REVISION") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)INFO_PCB_REVISION")
+}
+record(longin, "$(PREFIX):GET_SERIAL_NUM") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)INFO_SERIAL_NUM")
+}
+record(longin, "$(PREFIX):GET_NUM_CHANNELS") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)INFO_NUM_CHANNELS")
+}
+record(longin, "$(PREFIX):GET_FAMILY") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)INFO_FAMILY")
+}
+record(longin, "$(PREFIX):GET_CH_MEM_SIZE") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)INFO_CH_MEM_SIZE")
+}
+
+# This record refreshes various states after the digitizer is opened/closed.
+record(calc, "$(PREFIX):_refresh_after_opened_closed") {
+    field(INPA, "$(PREFIX):GET_MODEL_NAME.PROC PP")
+    field(INPB, "$(PREFIX):GET_ROC_FW_REV.PROC PP")
+    field(INPC, "$(PREFIX):GET_AMC_FW_REV.PROC PP")
+    field(INPD, "$(PREFIX):GET_PCB_REVISION PP")
+    field(INPE, "$(PREFIX):GET_SERIAL_NUM PP")
+    field(INPF, "$(PREFIX):GET_NUM_CHANNELS PP")
+    field(INPG, "$(PREFIX):GET_FAMILY PP")
+    field(INPH, "$(PREFIX):GET_CH_MEM_SIZE PP")
+    field(CALC, "0")
+}
+
+# Fan control mode (control and readback).
+# Note that control is asynchronous internally in the driver.
+record(mbbo, "$(PREFIX):SET_FAN_CONTROL_MODE") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)FAN_CONTROL_MODE")
+    field(ZRVL, "0")
+    field(ZRST, "SlowOrAuto")
+    field(ONVL, "1")
+    field(ONST, "HighSpeed")
+}
+record(mbbi, "$(PREFIX):GET_FAN_CONTROL_MODE") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)FAN_CONTROL_MODE_RB")
+    field(ZRVL, "0")
+    field(ZRST, "SlowOrAuto")
+    field(ONVL, "1")
+    field(ONST, "HighSpeed")
+    field(TWVL, "-1")
+    field(TWST, "")
+}
+
+# Clock source (control and readback).
+record(mbbo, "$(PREFIX):SET_CLOCK_SOURCE") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)CLOCK_SOURCE")
+    field(ZRVL, "0")
+    field(ZRST, "Internal")
+    field(ONVL, "1")
+    field(ONST, "External")
+}
+record(mbbi, "$(PREFIX):GET_CLOCK_SOURCE") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)CLOCK_SOURCE_RB")
+    field(ZRVL, "0")
+    field(ZRST, "Internal")
+    field(ONVL, "1")
+    field(ONST, "External")
+    field(TWVL, "-1")
+    field(TWST, "")
+}
+
+# Software trigger enable (control and readback).
+record(bo, "$(PREFIX):SET_SW_TRIGGER") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)SW_TRIGGER")
+    field(ZNAM, "Disabled")
+    field(ONAM, "Enabled")
+}
+record(mbbi, "$(PREFIX):GET_SW_TRIGGER") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)SW_TRIGGER_RB")
+    field(ZRVL, "0")
+    field(ZRST, "Disabled")
+    field(ONVL, "1")
+    field(ONST, "Enabled")
+    field(TWVL, "-1")
+    field(TWST, "")
+}
+
+# External trigger enable (control and readback).
+record(bo, "$(PREFIX):SET_EXT_TRIGGER") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)EXT_TRIGGER")
+    field(ZNAM, "Disabled")
+    field(ONAM, "Enabled")
+}
+record(mbbi, "$(PREFIX):GET_EXT_TRIGGER") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)EXT_TRIGGER_RB")
+    field(ZRVL, "0")
+    field(ZRST, "Disabled")
+    field(ONVL, "1")
+    field(ONST, "Enabled")
+    field(TWVL, "-1")
+    field(TWST, "")
+}
+
+# Channel 0/1 self-trigger enable (control and readback).
+record(bo, "$(PREFIX):SET_CH_SELF_TRIGGER_01") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)CH_SELF_TRIGGER_01")
+    field(ZNAM, "Disabled")
+    field(ONAM, "Enabled")
+}
+record(mbbi, "$(PREFIX):GET_CH_SELF_TRIGGER_01") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)CH_SELF_TRIGGER_01_RB")
+    field(ZRVL, "0")
+    field(ZRST, "Disabled")
+    field(ONVL, "1")
+    field(ONST, "Enabled")
+    field(TWVL, "-1")
+    field(TWST, "")
+}
+
+# Channel 2/3 self-trigger enable (control and readback).
+record(bo, "$(PREFIX):SET_CH_SELF_TRIGGER_23") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)CH_SELF_TRIGGER_23")
+    field(ZNAM, "Disabled")
+    field(ONAM, "Enabled")
+}
+record(mbbi, "$(PREFIX):GET_CH_SELF_TRIGGER_23") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)CH_SELF_TRIGGER_23_RB")
+    field(ZRVL, "0")
+    field(ZRST, "Disabled")
+    field(ONVL, "1")
+    field(ONST, "Enabled")
+    field(TWVL, "-1")
+    field(TWST, "")
+}
+
+# Channel 4/5 self-trigger enable (control and readback).
+record(bo, "$(PREFIX):SET_CH_SELF_TRIGGER_45") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)CH_SELF_TRIGGER_45")
+    field(ZNAM, "Disabled")
+    field(ONAM, "Enabled")
+}
+record(mbbi, "$(PREFIX):GET_CH_SELF_TRIGGER_45") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)CH_SELF_TRIGGER_45_RB")
+    field(ZRVL, "0")
+    field(ZRST, "Disabled")
+    field(ONVL, "1")
+    field(ONST, "Enabled")
+    field(TWVL, "-1")
+    field(TWST, "")
+}
+
+# Channel 6/7 self-trigger enable (control and readback).
+record(bo, "$(PREFIX):SET_CH_SELF_TRIGGER_67") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)CH_SELF_TRIGGER_67")
+    field(ZNAM, "Disabled")
+    field(ONAM, "Enabled")
+}
+record(mbbi, "$(PREFIX):GET_CH_SELF_TRIGGER_67") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)CH_SELF_TRIGGER_67_RB")
+    field(ZRVL, "0")
+    field(ZRST, "Disabled")
+    field(ONVL, "1")
+    field(ONST, "Enabled")
+    field(TWVL, "-1")
+    field(TWST, "")
+}
+

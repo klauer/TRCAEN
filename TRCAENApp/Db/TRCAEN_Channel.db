@@ -1,0 +1,48 @@
+# This file is part of the CAEN Digitizer Driver.
+# It is subject to the license terms in the LICENSE.txt file found in the
+# top-level directory of this distribution and at
+# https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. No part
+# of the CAEN Digitizer Driver, including this file, may be copied,
+# modified, propagated, or distributed except according to the terms
+# contained in the LICENSE.txt file.
+
+# Macros:
+#   PREFIX  - prefix of records (: is implied)
+#   PORT    - port name of the TRCAEN instance
+#   CHANNEL - channel number
+
+# Channel input range (desired and effective).
+record(mbbo, "$(PREFIX):DESIRED_INPUT_RANGE") {
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)DESIRED_CH$(CHANNEL)_INPUT_RANGE")
+    field(ZRVL, "0")
+    field(ZRST, "2 V")
+    field(ONVL, "1")
+    field(ONST, "0.5 V")
+}
+record(mbbi, "$(PREFIX):GET_ARMED_INPUT_RANGE") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),0,0)EFFECTIVE_CH$(CHANNEL)_INPUT_RANGE")
+    field(ZRVL, "0")
+    field(ZRST, "2 V")
+    field(ONVL, "1")
+    field(ONST, "0.5 V")
+    field(TWVL, "-1")
+    field(TWST, "N/A")
+}
+
+# Channel pulse width (desired and effective).
+record(longout, "$(PREFIX):DESIRED_PULSE_WIDTH") {
+    field(PINI, "YES")
+    field(VAL,  "2")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),0,0)DESIRED_CH$(CHANNEL)_PULSE_WIDTH")
+}
+record(ai, "$(PREFIX):GET_ARMED_PULSE_WIDTH") {
+    field(SCAN, "I/O Intr")
+    field(DTYP, "asynFloat64")
+    field(INP,  "@asyn($(PORT),0,0)EFFECTIVE_CH$(CHANNEL)_PULSE_WIDTH")
+}
